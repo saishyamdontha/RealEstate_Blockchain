@@ -46,4 +46,4 @@ build/
 ## How to Run
 1. Clone repo
 2. Configure DB
-3. Run application
+3. Run applicationsrc/main/resources/application.properties
