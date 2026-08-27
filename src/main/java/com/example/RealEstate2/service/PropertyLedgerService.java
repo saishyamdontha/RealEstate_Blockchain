@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
+import org.web3j.tx.ReadonlyTransactionManager;
 import org.web3j.tx.gas.DefaultGasProvider;
 
 import java.math.BigInteger;
@@ -15,18 +16,31 @@ public class PropertyLedgerService {
 
     private final Web3j web3j;
     private final Credentials credentials;
+    private final String contractAddress;
 
-    private PropertyLedger loadContract() {
+    // Writes (recordTransfer) need real signing -> Credentials + RawTransactionManager (web3j's default for this overload)
+    private PropertyLedger loadWritableContract() {
         return PropertyLedger.load(
-                System.getenv("CONTRACT_ADDRESS"),
+                contractAddress,
                 web3j,
                 credentials,
                 new DefaultGasProvider()
         );
     }
 
+    // Reads (getTransfersCount) are plain eth_call, no signing needed -> ReadonlyTransactionManager
+    private PropertyLedger loadReadOnlyContract() {
+        ReadonlyTransactionManager txManager = new ReadonlyTransactionManager(web3j, contractAddress);
+        return PropertyLedger.load(
+                contractAddress,
+                web3j,
+                txManager,
+                new DefaultGasProvider()
+        );
+    }
+
     public String recordTransfer(Long propertyId, String sellerId, String buyerId, String offchainTxHash) throws Exception {
-        PropertyLedger contract = loadContract();
+        PropertyLedger contract = loadWritableContract();
 
         var txReceipt = contract.recordTransfer(
                 BigInteger.valueOf(propertyId),
@@ -39,7 +53,7 @@ public class PropertyLedgerService {
     }
 
     public Long getTransfersCount() throws Exception {
-        PropertyLedger contract = loadContract();
+        PropertyLedger contract = loadReadOnlyContract();
         return contract.getTransfersCount().send().longValue();
     }
 }
