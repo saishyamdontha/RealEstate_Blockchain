@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.http.HttpService;
+import org.web3j.protocol.core.methods.request.Transaction;
 import org.web3j.tx.gas.ContractGasProvider;
 
 import java.math.BigInteger;
@@ -37,7 +38,6 @@ public class BlockchainConfig {
     public ContractGasProvider contractGasProvider() {
         return new ContractGasProvider() {
 
-            @Override
             public BigInteger getGasPrice(String s) {
                 return BigInteger.valueOf(20_000_000_000L); // 20 gwei
             }
@@ -47,13 +47,16 @@ public class BlockchainConfig {
                 return BigInteger.valueOf(20_000_000_000L);
             }
 
-            @Override
             public BigInteger getGasLimit(String s) {
                 return BigInteger.valueOf(6_000_000); // fits Ganache limit (6.7M)
             }
 
             @Override
             public BigInteger getGasLimit() {
+                return BigInteger.valueOf(6_000_000);
+            }
+            @Override
+            public BigInteger getGasLimit(Transaction transaction) {
                 return BigInteger.valueOf(6_000_000);
             }
         };

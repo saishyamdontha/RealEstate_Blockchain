@@ -47,3 +47,4 @@ build/
 1. Clone repo
 2. Configure DB
 3. Run applicationsrc/main/resources/application.properties
+.env.local

@@ -26,6 +26,13 @@ public class Property {
     // Your custom property ID (public ID)
     private String propertyId;
 
+    // On-chain property ID from PropertyLedger.registerProperty() -- the
+    // uint256 the contract actually indexes sales by. Distinct from
+    // propertyId above (a separate app-level public ID) and from id (the
+    // DB primary key). Null until the property has been registered on-chain.
+    @Column(name = "blockchain_property_id")
+    private Long blockchainPropertyId;
+
     private String titleDeedNumber;
     private String propertyType;
     private String address;
@@ -64,6 +71,13 @@ public class Property {
 
     public void setPropertyId(String propertyId) {
         this.propertyId = propertyId;
+    }
+
+    public Long getBlockchainPropertyId() {
+        return blockchainPropertyId;
+    }
+    public void setBlockchainPropertyId(Long blockchainPropertyId) {
+        this.blockchainPropertyId = blockchainPropertyId;
     }
 
     public String getTitleDeedNumber() {

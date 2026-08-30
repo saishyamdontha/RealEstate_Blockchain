@@ -1,0 +1,222 @@
+{
+  "info": {
+    "name": "RealEstate2 API",
+    "description": "Auth, property CRUD, and on-chain escrow endpoints for the RealEstate2 Spring Boot app. Requires the app running locally on port 8080, Postgres up, and Ganache running with the deployed PropertyLedger contract address set via BLOCKCHAIN_CONTRACT.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "userId", "value": "1" },
+    { "key": "uniqueUserId", "value": "seller-001" },
+    { "key": "propertyId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/register", "host": ["{{baseUrl}}"], "path": ["api", "auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Seller\",\n  \"email\": \"seller@test.com\",\n  \"phone\": \"1234567890\",\n  \"password\": \"testpass123\",\n  \"uniqueId\": \"seller-001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"seller@test.com\",\n  \"password\": \"testpass123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/api/auth/logout", "host": ["{{baseUrl}}"], "path": ["api", "auth", "logout"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Properties",
+      "item": [
+        {
+          "name": "Add Property (registers on-chain)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/user/add/property/{{userId}}/{{uniqueUserId}}",
+              "host": ["{{baseUrl}}"], "path": ["api", "user", "add", "property", "{{userId}}", "{{uniqueUserId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"propertyId\": \"PROP-001\",\n  \"titleDeedNumber\": \"TD-001\",\n  \"propertyType\": \"House\",\n  \"address\": \"123 Test St\",\n  \"city\": \"Testville\",\n  \"latitude\": \"12.34\",\n  \"longitude\": \"56.78\"\n}"
+            },
+            "description": "Triggers PropertyLedgerService.registerProperty() on-chain before saving to DB. Fails entirely (no DB row created) if the blockchain call fails."
+          }
+        },
+        {
+          "name": "Get Properties By User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/user/{{userId}}/properties",
+              "host": ["{{baseUrl}}"], "path": ["api", "user", "{{userId}}", "properties"]
+            }
+          }
+        },
+        {
+          "name": "Get Properties For Sale",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/user/properties/for-sale",
+              "host": ["{{baseUrl}}"], "path": ["api", "user", "properties", "for-sale"]
+            }
+          }
+        },
+        {
+          "name": "Mark Property For Sale",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/api/user/property/sell/{{propertyId}}/{{uniqueUserId}}",
+              "host": ["{{baseUrl}}"], "path": ["api", "user", "property", "sell", "{{propertyId}}", "{{uniqueUserId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Property",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/user/{{userId}}/delete/property/{{propertyId}}",
+              "host": ["{{baseUrl}}"], "path": ["api", "user", "{{userId}}", "delete", "property", "{{propertyId}}"]
+            },
+            "description": "Returns 409 CONFLICT if the property is currently marked for sale (possible in-progress on-chain escrow)."
+          }
+        },
+        {
+          "name": "Transfer Property (finalizes on-chain sale)",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/api/user/property/transfer/{{propertyId}}/{{uniqueUserId}}/buyer-001",
+              "host": ["{{baseUrl}}"], "path": ["api", "user", "property", "transfer", "{{propertyId}}", "{{uniqueUserId}}", "buyer-001"]
+            },
+            "description": "Assumes listProperty -> depositEarnest -> updateInspectionStatus -> fundAsLender have already completed on-chain for this property's blockchainPropertyId via the /ledger endpoints below. Throws if blockchainPropertyId is null."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ledger (raw escrow contract calls)",
+      "item": [
+        {
+          "name": "Register Property On-Chain",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/ledger/register", "host": ["{{baseUrl}}"], "path": ["ledger", "register"] }
+          }
+        },
+        {
+          "name": "List Property For Sale (escrow)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/ledger/{{propertyId}}/list?buyerAddress=0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35&lenderAddress=0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35&inspectorAddress=0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35&priceWei=1000000000000000000&earnestAmountWei=100000000000000000",
+              "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "list"],
+              "query": [
+                { "key": "buyerAddress", "value": "0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35" },
+                { "key": "lenderAddress", "value": "0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35" },
+                { "key": "inspectorAddress", "value": "0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35" },
+                { "key": "priceWei", "value": "1000000000000000000" },
+                { "key": "earnestAmountWei", "value": "100000000000000000" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deposit Earnest",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/ledger/{{propertyId}}/earnest?earnestAmountWei=100000000000000000",
+              "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "earnest"],
+              "query": [{ "key": "earnestAmountWei", "value": "100000000000000000" }]
+            },
+            "description": "Returns a decoded 400 (e.g. NotBuyer) with the real revert error name and offending address if the calling account isn't the registered buyer, instead of a generic 500."
+          }
+        },
+        {
+          "name": "Update Inspection Status",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/ledger/{{propertyId}}/inspection?passed=true",
+              "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "inspection"],
+              "query": [{ "key": "passed", "value": "true" }]
+            }
+          }
+        },
+        {
+          "name": "Fund As Lender",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/ledger/{{propertyId}}/fund?remainingWei=900000000000000000",
+              "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "fund"],
+              "query": [{ "key": "remainingWei", "value": "900000000000000000" }]
+            }
+          }
+        },
+        {
+          "name": "Finalize Sale",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/ledger/{{propertyId}}/finalize", "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "finalize"] }
+          }
+        },
+        {
+          "name": "Cancel Sale",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{baseUrl}}/ledger/{{propertyId}}/cancel", "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "cancel"] }
+          }
+        },
+        {
+          "name": "Get Sale State",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ledger/{{propertyId}}", "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}"] }
+          }
+        },
+        {
+          "name": "Get Property Owner",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ledger/{{propertyId}}/owner", "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "owner"] }
+          }
+        },
+        {
+          "name": "Get Next Property ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/ledger/next-id", "host": ["{{baseUrl}}"], "path": ["ledger", "next-id"] }
+          }
+        }
+      ]
+    }
+  ]
+}

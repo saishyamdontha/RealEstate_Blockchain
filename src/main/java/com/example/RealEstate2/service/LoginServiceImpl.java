@@ -9,6 +9,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @Service
 public class LoginServiceImpl implements LoginService {
 
@@ -24,9 +27,9 @@ public class LoginServiceImpl implements LoginService {
         }
 
         user.setUserStatus(UserStatus.PENDING);
-        userRepository.save(user);
+        User saved = userRepository.save(user);
 
-        return ResponseEntity.ok("User registered successfully");
+        return ResponseEntity.ok(toUserResponse(saved));
     }
 
     @Override
@@ -44,11 +47,24 @@ public class LoginServiceImpl implements LoginService {
                     .body("Incorrect password");
         }
 
-        return ResponseEntity.ok("Login successful");
+        return ResponseEntity.ok(toUserResponse(dbUser));
     }
 
     @Override
     public ResponseEntity<?> logout() {
         return ResponseEntity.ok("Logout successful");
+    }
+
+    // The frontend needs id/uniqueId back from register+login to make any
+    // subsequent property/ledger call (they all take these as path params).
+    // Password is deliberately excluded from the response.
+    private Map<String, Object> toUserResponse(User user) {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("id", user.getId());
+        response.put("uniqueId", user.getUniqueId());
+        response.put("name", user.getName());
+        response.put("email", user.getEmail());
+        response.put("walletAddress", user.getWalletAddress());
+        return response;
     }
 }
