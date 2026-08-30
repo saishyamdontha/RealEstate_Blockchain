@@ -48,3 +48,9 @@ build/
 2. Configure DB
 3. Run applicationsrc/main/resources/application.properties
 .env.local
+
+# Frontend (React/Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
