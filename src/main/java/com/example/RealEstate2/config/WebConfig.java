@@ -12,7 +12,7 @@ public class WebConfig implements WebMvcConfigurer {
         // the Spring Boot API, so the browser treats it as cross-origin.
         // Restricted to localhost:5173 rather than a wildcard.
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173")
+                .allowedOrigins("http://localhost:5173", "https://real-estate-blockchain-lake.vercel.app")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*");
     }
