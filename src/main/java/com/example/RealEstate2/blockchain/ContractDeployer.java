@@ -19,7 +19,7 @@ public class ContractDeployer {
         Credentials credentials = Credentials.create(privateKey);
         StaticGasProvider gasProvider = new StaticGasProvider(
                 BigInteger.valueOf(20_000_000_000L),
-                BigInteger.valueOf(3_000_000L)
+                BigInteger.valueOf(1_200_000L) // actual Ganache deployment used ~909k gas
         );
 
         System.out.println("Deploying PropertyLedger to " + rpcUrl + " ...");
