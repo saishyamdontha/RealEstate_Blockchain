@@ -39,25 +39,25 @@ public class BlockchainConfig {
         return new ContractGasProvider() {
 
             public BigInteger getGasPrice(String s) {
-                return BigInteger.valueOf(20_000_000_000L); // 20 gwei
+                return BigInteger.valueOf(5_000_000_000L); // 5 gwei
             }
 
             @Override
             public BigInteger getGasPrice() {
-                return BigInteger.valueOf(20_000_000_000L);
+                return BigInteger.valueOf(5_000_000_000L);
             }
 
             public BigInteger getGasLimit(String s) {
-                return BigInteger.valueOf(6_000_000); // fits Ganache limit (6.7M)
+                return BigInteger.valueOf(300_000);
             }
 
             @Override
             public BigInteger getGasLimit() {
-                return BigInteger.valueOf(6_000_000);
+                return BigInteger.valueOf(300_000);
             }
             @Override
             public BigInteger getGasLimit(Transaction transaction) {
-                return BigInteger.valueOf(6_000_000);
+                return BigInteger.valueOf(300_000);
             }
         };
     }
