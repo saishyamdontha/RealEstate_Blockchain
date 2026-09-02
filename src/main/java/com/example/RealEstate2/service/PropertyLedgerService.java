@@ -193,10 +193,10 @@ public class PropertyLedgerService {
                 tuple.component2(),
                 tuple.component3(),
                 tuple.component4(),
-                tuple.component5(),
-                tuple.component6(),
-                tuple.component7(),
-                tuple.component8(),
+                tuple.component5().toString(),
+                tuple.component6().toString(),
+                tuple.component7().toString(),
+                tuple.component8().toString(),
                 tuple.component9().intValue()
         );
     }
@@ -211,15 +211,19 @@ public class PropertyLedgerService {
         return contract.nextPropertyId().send();
     }
 
+    // price/earnestAmount/deposited* are serialized as Strings (not BigInteger)
+    // so JSON clients never silently lose precision on large wei values --
+    // JavaScript's JSON.parse converts large numeric literals into Number,
+    // which loses precision above 2^53 and corrupts values like 1e18 wei.
     public record SaleView(
             String seller,
             String buyer,
             String lender,
             String inspector,
-            BigInteger price,
-            BigInteger earnestAmount,
-            BigInteger depositedByBuyer,
-            BigInteger depositedByLender,
+            String price,
+            String earnestAmount,
+            String depositedByBuyer,
+            String depositedByLender,
             int status
     ) {}
 }
