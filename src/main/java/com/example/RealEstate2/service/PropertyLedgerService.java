@@ -64,11 +64,24 @@ public class PropertyLedgerService {
      * improvement, not a guarantee.
      */
     private void simulateOrThrow(Function function) throws Exception {
+        simulateOrThrow(function, BigInteger.ZERO);
+    }
+
+    // Overload for payable calls (depositEarnest, fundAsLender): the plain
+    // 3-arg Transaction.createEthCallTransaction has no value field, so a
+    // payable function simulated with it always sees msg.value = 0 and
+    // reverts with IncorrectValue even when the real transaction would send
+    // the correct amount. Use the value-aware overload so the simulation
+    // matches what the real transaction will actually send.
+    private void simulateOrThrow(Function function, BigInteger weiValue) throws Exception {
         String encodedFunction = FunctionEncoder.encode(function);
         String fromAddress = credentials.getAddress();
 
+        Transaction transaction = Transaction.createFunctionCallTransaction(
+                fromAddress, null, null, null, contractAddress, weiValue, encodedFunction
+        );
         EthCall response = web3j.ethCall(
-                Transaction.createEthCallTransaction(fromAddress, contractAddress, encodedFunction),
+                transaction,
                 DefaultBlockParameterName.LATEST
         ).send();
 
@@ -126,7 +139,7 @@ public class PropertyLedgerService {
                 Arrays.<Type>asList(new Uint256(BigInteger.valueOf(propertyId))),
                 Collections.<TypeReference<?>>emptyList()
         );
-        simulateOrThrow(function);
+        simulateOrThrow(function, earnestAmountWei);
 
         PropertyLedger contract = loadWritableContract();
         var receipt = contract.depositEarnest(BigInteger.valueOf(propertyId), earnestAmountWei).send();
@@ -152,7 +165,7 @@ public class PropertyLedgerService {
                 Arrays.<Type>asList(new Uint256(BigInteger.valueOf(propertyId))),
                 Collections.<TypeReference<?>>emptyList()
         );
-        simulateOrThrow(function);
+        simulateOrThrow(function, remainingWei);
 
         PropertyLedger contract = loadWritableContract();
         var receipt = contract.fundAsLender(BigInteger.valueOf(propertyId), remainingWei).send();
