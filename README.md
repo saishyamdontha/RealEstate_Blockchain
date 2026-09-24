@@ -1,149 +1,81 @@
-# RealEstate_Blockchain
+﻿# Blockchain Real Estate Ledger
 
-A real estate platform combining a Spring Boot backend, a Solidity escrow smart
-contract, and a React frontend — property records live in Postgres, but
-ownership transfers and sale funds are governed on-chain by a multi-party
-escrow contract (seller, buyer, lender, inspector).
+A property escrow system connecting a Spring Boot REST API to a Solidity smart contract, with the standard
+buy/sell workflow (list, earnest deposit, inspection, funding, finalize or cancel) enforced on-chain.
+
+## Live
+
+- Frontend: https://real-estate-blockchain-git-main-saishyamdonthas-projects.vercel.app
+- Backend: https://realestate-blockchain.onrender.com (Render free tier — cold starts after inactivity, first
+  request can take up to a minute)
+- Contract deployed on Sepolia testnet
 
 ## Architecture
+Frontend (Next.js, Vercel)
+|
+Backend (Spring Boot, Render)
+|-- PropertyLedgerController -> web3j -> PropertyLedger.sol (Sepolia)
+|-- UserController -> Postgres (Neon)
+`-- LoginController -> Postgres (Neon)
 
-- **Contract** (`PropertyLedger.sol`) — property registration and a full
-  escrow sale flow: `listProperty → depositEarnest → updateInspectionStatus
-  → fundAsLender → finalizeSale` (or `cancelSale` at any point, with earnest
-  refund/forfeiture depending on how far the sale progressed).
-- **Backend** (Spring Boot + web3j) — REST API over Postgres for
-  user/property records, plus a thin layer (`PropertyLedgerService`) that
-  calls the contract. Every `Property` row is linked to its on-chain state
-  via a `blockchainPropertyId` column.
-- **Frontend** (React + Vite + Tailwind) — auth, property CRUD, and a
-  dedicated escrow page that drives the sale flow above directly against
-  the contract (via the backend).
+`PropertyLedgerController` writes property state directly to the smart contract via a web3j-generated Java
+wrapper. `UserController` tracks per-user property ownership in Postgres, keyed separately from the on-chain
+`propertyId`. These are not currently reconciled by a shared service layer — see Limitations.
 
-## Why this design
+## API
 
-Most tutorial-tier "real estate on blockchain" projects stop at "mint an NFT,
-transfer it." The actual hard problem in a real estate sale is **multi-party
-sequencing under trust constraints** — an inspector has to sign off before a
-lender releases funds, and a buyer backing out after inspection should forfeit
-their deposit differently than one backing out before. `PropertyLedger.sol`
-models that directly: a `Status` enum enforces the valid transition order,
-and cancellation logic distinguishes "inspection never passed" (full refund)
-from "buyer backed out after inspection passed" (earnest forfeited to
-seller) — a distinction most versions of this pattern skip.
+**Auth** — `/api/auth`
+| Method | Path        |
+|--------|-------------|
+| POST   | `/register` |
+| POST   | `/login`    |
+| POST   | `/logout`   |
 
-## A debugging story worth reading
+**Property ledger (on-chain)** — `/ledger`
+| Method | Path                         | Description                    |
+|--------|------------------------------|---------------------------------|
+| POST   | `/register`                  | Register a new property         |
+| GET    | `/next-id`                   | Get the next available property ID |
+| POST   | `/{propertyId}/list`         | List a property for sale        |
+| POST   | `/{propertyId}/earnest`      | Submit earnest deposit          |
+| POST   | `/{propertyId}/inspection`   | Record inspection outcome       |
+| POST   | `/{propertyId}/fund`         | Fund the escrow                 |
+| POST   | `/{propertyId}/finalize`     | Finalize the sale                |
+| POST   | `/{propertyId}/cancel`       | Cancel the sale                  |
+| GET    | `/{propertyId}`              | Get property state              |
+| GET    | `/{propertyId}/owner`        | Get current owner                |
 
-This project went through a non-trivial migration and a genuine, undocumented
-bug hunt, in case it's useful context for anyone reading the commit history:
+**User properties (off-chain)** — `/api/user`
+| Method | Path                                               | Description                  |
+|--------|-----------------------------------------------------|-------------------------------|
+| POST   | `/add/property/{userId}/{uniqueId}`                  | Add a property to a user      |
+| GET    | `/{userId}/properties`                               | List a user's properties      |
+| GET    | `/properties/for-sale`                               | List all properties for sale  |
+| PUT    | `/property/sell/{propertyId}/{userUniqueId}`         | Mark a property for sale      |
+| PUT    | `/property/transfer/{propertyId}/{sellerId}/{buyerId}` | Transfer ownership           |
+| DELETE | `/{userId}/delete/property/{propertyId}`             | Remove a property from a user |
 
-1. **web3j 4.9.8 → 5.0.2 migration.** The newer web3j version added
-   `CustomError` codegen support (needed for decoding Solidity custom
-   errors) but also *removed* the old `getGasPrice(String)` /
-   `getGasLimit(String)` overloads from `ContractGasProvider` and added a
-   new `getGasLimit(Transaction)` method — a breaking interface change with
-   no compiler warning pointing at the actual fix.
-2. **A Lombok/JDK 21 annotation-processor bug.** One class's
-   `@RequiredArgsConstructor`-generated constructor silently wasn't being
-   picked up by `javac` under Maven's implicit annotation-processor
-   discovery — confirmed by running `delombok` directly (which showed Lombok
-   itself generating the constructor correctly) and comparing against the
-   actual compile error, which meant the *dispatch*, not Lombok, was the
-   problem. Fixed by explicitly declaring `annotationProcessorPaths` in
-   `maven-compiler-plugin`.
-3. **A working custom-error decoder — the interesting part.** web3j 5.0.2
-   generates `CustomError` definitions for a contract's ABI but does **not**
-   auto-decode revert data against them anywhere in the `send()` path;
-   `TransactionException` only ever surfaces a generic revert string. Built
-   a decoder that:
-   - Replays every write call as a read-only `eth_call` first (via
-     `FunctionEncoder` + `web3j.ethCall(...)`), so a doomed transaction is
-     caught *before* spending real gas.
-   - Reflects over the generated contract wrapper's `CustomError` fields to
-     build a selector → error map at startup.
-   - Decodes the raw revert bytes against that map using
-     `FunctionReturnDecoder`.
+## Run locally
+git clone https://github.com/saishyamdontha/RealEstate_Blockchain.git
+cd RealEstate_Blockchain
 
-   Byte-level logging (`selector.getBytes()`) during development surfaced an
-   undocumented quirk: on this stack (Ganache + web3j 5.0.2),
-   `Response.Error.getData()` returns the revert payload **with its
-   enclosing JSON quote characters still attached** — e.g. literal
-   `"0x1234..."` instead of `0x1234...`. That's not documented anywhere;
-   found only by comparing the raw byte array against the expected string.
-   Verified end-to-end: a `NotBuyer` revert now returns a clean `400` with
-   the actual error name and offending address, instead of a generic `500`.
+set BLOCKCHAIN_RPC, BLOCKCHAIN_PRIVATE_KEY, BLOCKCHAIN_CONTRACT as environment variables
 
-## Known limitations (stated, not hidden)
+./mvnw spring-boot:run
 
-- **Single-signer demo simplification.** The backend signs every on-chain
-  transaction with one funded account, regardless of which "role"
-  (seller/buyer/lender/inspector) is calling. A production version would
-  have each user sign with their own wallet (e.g. via MetaMask in the
-  frontend), with the backend only reading on-chain state.
-- **Passwords are stored and compared in plaintext.** Fine for a local
-  portfolio demo; would need hashing (e.g. BCrypt) before this touches real
-  user data.
-- **Deleting a property that's never been listed for sale still leaves an
-  inert, orphaned on-chain registration** — deletion is blocked only while a
-  property is actively marked for sale (to prevent desyncing an in-progress
-  escrow), not fully reconciled with chain state in all cases.
-- **On-chain title verification is out of scope.** Registering a property
-  on-chain proves "this address registered it," not legal ownership — that
-  would require integration with a real title/registry system.
 
-## Tech stack
 
-- **Contract**: Solidity 0.8.24, custom errors, `ReentrancyGuard`
-- **Backend**: Spring Boot 3.5, web3j 5.0.2, Spring Data JPA, PostgreSQL,
-  Lombok
-- **Frontend**: React 18, Vite, React Router, Tailwind CSS
-- **Testing**: JUnit 5 + Mockito (backend), Hardhat/Chai (contract, in the
-  companion escrow-contract project)
+Requires a running Ethereum node (local Ganache/Hardhat, or a Sepolia RPC endpoint) and the `PropertyLedger`
+contract deployed to it.
 
-## Running locally
+## Limitations
 
-Requires: Java 21, Maven, Node.js, PostgreSQL, and a local Ethereum node
-(Ganache or Hardhat).
-
-```bash
-# 1. Start Postgres and create the database (see application.properties)
-
-# 2. Start a local chain
-ganache --wallet.totalAccounts 5
-
-# 3. Deploy the contract (prints the deployed address)
-export BLOCKCHAIN_PRIVATE_KEY=<a funded local account's private key>
-export BLOCKCHAIN_RPC=http://127.0.0.1:8545
-mvn compile exec:java -Dexec.mainClass="com.example.RealEstate2.blockchain.ContractDeployer"
-
-# 4. Configure env vars for the backend (see .env.local.example pattern below)
-export BLOCKCHAIN_PRIVATE_KEY=<a funded local account's private key>
-export BLOCKCHAIN_RPC=http://127.0.0.1:8545
-export BLOCKCHAIN_CONTRACT=<address printed by step 3>
-
-# 5. Run the backend
-mvn spring-boot:run
-
-# 6. Run the frontend
-cd frontend
-npm install
-npm run dev
-```
-
-Backend runs on `http://localhost:8080`, frontend on `http://localhost:5173`.
-
-## API reference
-
-See `RealEstate2.postman_collection.json` for every endpoint (auth, property
-CRUD, and raw escrow contract calls), with working example values.
-
-## Testing
-
-```bash
-mvn test
-```
-
-6 unit tests cover the invariants introduced during the rebuild: on-chain
-registration failure blocks the DB save (no orphaned DB-only properties),
-successful registration persists the on-chain ID, duplicate-property
-rejection short-circuits before any blockchain call, the delete-while-listed
-guard, and the transfer-without-on-chain-registration guard.
+- **Auth is not yet enforced on the ledger and user endpoints.** `LoginController` provides register/login/logout,
+  but `PropertyLedgerController` and `UserController` do not currently check a session or token before executing
+  state-changing calls (`finalize`, `cancel`, `fund`, `sell`, `transfer`). Anyone who knows a `propertyId` can call
+  these directly. This is a known gap, not yet fixed.
+- On-chain property state (`PropertyLedgerController`) and off-chain per-user property tracking
+  (`UserController`) are not reconciled by a shared service layer; they can drift out of sync.
+- Deployed to Sepolia testnet only — not audited, not intended to hold real funds.
+- Early commits contained a local devnet private key (Ganache/Hardhat default ports) in `application.properties`,
+  since moved to an environment variable. The exposed key was never funded on any public network.
