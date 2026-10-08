@@ -22,12 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: HIGH,CRITICAL
-          exit-code: '0'
+      - name: Scan dependencies
+        run: >
+          docker run --rm -v "$PWD:/src" ghcr.io/aquasecurity/trivy:latest
+          fs --severity HIGH,CRITICAL --exit-code 0 /src
 
   static-analysis:
     name: Static analysis (Semgrep)
