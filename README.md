@@ -79,3 +79,23 @@ contract deployed to it.
 - Deployed to Sepolia testnet only — not audited, not intended to hold real funds.
 - Early commits contained a local devnet private key (Ganache/Hardhat default ports) in `application.properties`,
   since moved to an environment variable. The exposed key was never funded on any public network.
+
+## CI and Security Pipeline
+
+![CI](https://github.com/saishyamdontha/RealEstate_Blockchain/actions/workflows/ci.yml/badge.svg)
+![Security](https://github.com/saishyamdontha/RealEstate_Blockchain/actions/workflows/security.yml/badge.svg)
+
+Every push to `main` runs two GitHub Actions workflows.
+
+| Workflow | Job | Tool | What it checks |
+|---|---|---|---|
+| CI | Build and test | Maven, JUnit | Compiles the backend and runs all 7 tests |
+| Security | Secret scan | Gitleaks | Full Git history for committed keys and passwords |
+| Security | Dependency scan | Trivy | Known HIGH and CRITICAL CVEs in Maven dependencies |
+| Security | Static analysis | Semgrep | Insecure patterns in the Java source |
+
+Tests run with a `test` profile (`src/test/resources/application-test.properties`) that uses an
+in-memory H2 database and a dummy key, so the pipeline needs no production secrets.
+
+The dependency and static analysis jobs currently run in report-only mode. A blocking severity
+gate is planned once the baseline findings are triaged.
