@@ -22,10 +22,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Download dependencies into the local Maven cache
+        run: mvn -B -q dependency:resolve
+
       - name: Scan dependencies
         run: >
-          docker run --rm -v "$PWD:/src" ghcr.io/aquasecurity/trivy:latest
-          fs --severity HIGH,CRITICAL --exit-code 0 /src
+          docker run --rm
+          -v "$PWD:/src"
+          -v "$HOME/.m2:/root/.m2"
+          ghcr.io/aquasecurity/trivy:latest
+          fs --scanners vuln --offline-scan
+          --severity HIGH,CRITICAL --exit-code 0 /src
 
   static-analysis:
     name: Static analysis (Semgrep)
