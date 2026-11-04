@@ -75,6 +75,7 @@ public class PropertyServiceImpl implements PropertyService {
         try {
             onChainId = ledgerService.registerProperty();
         } catch (Exception e) {
+            log.error("On-chain registration failed for property {}: {}", property.getPropertyId(), e.toString());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to register property on-chain: " + e.getMessage());
         }

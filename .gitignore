@@ -58,3 +58,4 @@ frontend/*.local
 # collected runtime logs
 logs/
 __pycache__/
+trials/

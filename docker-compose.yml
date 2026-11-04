@@ -58,10 +58,11 @@ services:
     environment:
       DATABASE_URL: jdbc:postgresql://db:5432/re2_app
       DATABASE_USERNAME: postgres
-      DATABASE_PASSWORD: ${DB_PASSWORD:-localdev}
+      # FAULT_* variables are set ONLY by scripts/faults.py to break the backend on purpose.
+      DATABASE_PASSWORD: ${FAULT_BACKEND_DB_PASSWORD:-${DB_PASSWORD:-localdev}}
       BLOCKCHAIN_RPC: http://chain:8545
       BLOCKCHAIN_PRIVATE_KEY: *anvil_key
-      BLOCKCHAIN_CONTRACT: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+      BLOCKCHAIN_CONTRACT: ${FAULT_BACKEND_CONTRACT:-0x5FbDB2315678afecb367f032d93F642f64180aa3}
     ports: ["8080:8080"]
 
   frontend:
