@@ -14,6 +14,8 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 .allowedOrigins("http://localhost:5173", "https://real-estate-blockchain-lake.vercel.app")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*");
+                .allowedHeaders("*")
+                // Let the browser read the request ID, so a user-visible error can be traced in logs
+                .exposedHeaders(RequestLoggingFilter.HEADER);
     }
 }
