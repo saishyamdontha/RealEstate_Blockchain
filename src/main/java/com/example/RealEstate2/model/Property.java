@@ -59,6 +59,21 @@ public class Property {
     // Shortcut for user unique ID
     private String uniqueUserId;
 
+    // App-level uniqueId of the buyer chosen when the property was listed
+    // for escrow. The backend wallet signs every on-chain role, so the
+    // on-chain buyer address cannot identify the real buyer -- the DB
+    // keeps it here until finalizeSale succeeds.
+    @Column(name = "pending_buyer_unique_id")
+    private String pendingBuyerUniqueId;
+
+    public String getPendingBuyerUniqueId() {
+        return pendingBuyerUniqueId;
+    }
+
+    public void setPendingBuyerUniqueId(String pendingBuyerUniqueId) {
+        this.pendingBuyerUniqueId = pendingBuyerUniqueId;
+    }
+
     // ----------------------- Getters & Setters -----------------------
 
     public Long getId() {

@@ -35,10 +35,11 @@ export default function Register() {
   };
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-73px)] max-w-md flex-col justify-center px-6 py-12">
-      <div className="card p-8">
-        <h1 className="text-xl font-semibold text-slate-900">Create an account</h1>
-        <p className="mt-1 text-sm text-slate-500">
+    <div className="relative flex min-h-[calc(100vh-65px)] items-center justify-center overflow-hidden px-6 py-12">
+      <div className="pointer-events-none absolute inset-0 bg-glow-radial" />
+      <div className="card relative w-full max-w-md p-8">
+        <h1 className="font-display text-xl font-bold text-ink-50">Create an account</h1>
+        <p className="mt-1 text-sm text-ink-400">
           Register to list or buy property on-chain.
         </p>
 
@@ -56,8 +57,8 @@ export default function Register() {
               onChange={update("uniqueId")}
               placeholder="jane-doe-001"
             />
-            <p className="mt-1 text-xs text-slate-400">
-              A short handle used to identify you in property transfers (e.g. as buyer/seller).
+            <p className="mt-1.5 text-xs text-ink-500">
+              A short handle used to identify you in property transfers.
             </p>
           </div>
           <div>
@@ -74,7 +75,9 @@ export default function Register() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+            <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
+              {error}
+            </p>
           )}
 
           <button type="submit" disabled={loading} className="btn-primary w-full">
@@ -82,9 +85,9 @@ export default function Register() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-ink-400">
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-brand-600 hover:text-brand-700">
+          <Link to="/login" className="font-medium text-brand-400 hover:text-brand-300">
             Log in
           </Link>
         </p>

@@ -10,13 +10,20 @@ import com.example.RealEstate2.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class PropertyServiceImpl implements PropertyService {
+
+    private static final Logger log = LoggerFactory.getLogger(PropertyServiceImpl.class);
 
     @Autowired
     private PropertyRepository propertyRepository;
@@ -159,9 +166,6 @@ public class PropertyServiceImpl implements PropertyService {
         User buyer = userRepository.findByUniqueId(buyerId)
                 .orElseThrow(() -> new RuntimeException("Buyer not found"));
 
-        // 4. Generate LOCAL offchain hash
-        String offchainHash = "OFFCHAIN-" + propertyId + "-" + System.nanoTime();
-
         // 5. Blockchain call
         // NOTE: this now assumes listProperty -> depositEarnest ->
         // updateInspectionStatus -> fundAsLender have already completed
@@ -190,24 +194,99 @@ public class PropertyServiceImpl implements PropertyService {
             throw new RuntimeException("Blockchain transaction failed: " + e.getMessage());
         }
 
-        // 6. Update property in DB
+        // 6. Update DB ownership + transaction record
+        applyOwnershipChange(property, buyer, blockchainTxHash);
+
+        return "Property transferred successfully! Blockchain TX: " + blockchainTxHash;
+    }
+
+    // ---------------------------------------------------
+    // ESCROW FLOW: keep DB ownership in sync with the chain
+    // ---------------------------------------------------
+    @Override
+    @Transactional
+    public void recordPendingBuyer(Long blockchainPropertyId, String buyerUniqueId) {
+        if (buyerUniqueId == null || buyerUniqueId.isBlank()) {
+            log.warn("Escrow listed without buyerUniqueId for chain property {} -- DB owner will not update on finalize",
+                    blockchainPropertyId);
+            return;
+        }
+        userRepository.findByUniqueId(buyerUniqueId)
+                .orElseThrow(() -> new IllegalArgumentException("Buyer not found: " + buyerUniqueId));
+
+        propertyRepository.findByBlockchainPropertyId(blockchainPropertyId).ifPresentOrElse(p -> {
+            p.setPendingBuyerUniqueId(buyerUniqueId);
+            p.setForSale(true);
+            propertyRepository.save(p);
+            log.info("Escrow listed: chain property {} -> pending buyer {}", blockchainPropertyId, buyerUniqueId);
+        }, () -> log.warn("Escrow listed for chain property {} with no matching DB row", blockchainPropertyId));
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Object> finalizeEscrowSale(Long blockchainPropertyId) throws Exception {
+        // Chain first: if it reverts, nothing in the DB changes.
+        String txHash = ledgerService.finalizeSale(blockchainPropertyId);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("txHash", txHash);
+
+        Property property = propertyRepository.findByBlockchainPropertyId(blockchainPropertyId).orElse(null);
+        if (property == null) {
+            log.error("DESYNC: finalizeSale tx {} succeeded for chain property {} but no DB row exists",
+                    txHash, blockchainPropertyId);
+            result.put("dbSynced", false);
+            result.put("reason", "No DB property for this on-chain ID");
+            return result;
+        }
+        String buyerUniqueId = property.getPendingBuyerUniqueId();
+        User buyer = buyerUniqueId == null ? null : userRepository.findByUniqueId(buyerUniqueId).orElse(null);
+        if (buyer == null) {
+            log.error("DESYNC: finalizeSale tx {} succeeded for chain property {} but pending buyer is missing ({})",
+                    txHash, blockchainPropertyId, buyerUniqueId);
+            result.put("dbSynced", false);
+            result.put("reason", "No pending buyer recorded at listing");
+            return result;
+        }
+
+        applyOwnershipChange(property, buyer, txHash);
+        log.info("Escrow finalized: chain property {} now owned by {} (tx {})", blockchainPropertyId, buyerUniqueId, txHash);
+        result.put("dbSynced", true);
+        result.put("newOwner", buyerUniqueId);
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void clearPendingBuyer(Long blockchainPropertyId) {
+        propertyRepository.findByBlockchainPropertyId(blockchainPropertyId).ifPresent(p -> {
+            p.setPendingBuyerUniqueId(null);
+            p.setForSale(false);
+            propertyRepository.save(p);
+        });
+    }
+
+    // Shared by transferProperty and finalizeEscrowSale so there is
+    // exactly one code path that changes ownership in the DB.
+    private void applyOwnershipChange(Property property, User buyer, String blockchainTxHash) {
+        String sellerUniqueId = property.getUniqueUserId();
+        String offchainHash = "OFFCHAIN-" + property.getId() + "-" + System.nanoTime();
+
         property.setUser(buyer);
-        property.setUniqueUserId(buyerId);
+        property.setUniqueUserId(buyer.getUniqueId());
         property.setForSale(false);
+        property.setPendingBuyerUniqueId(null);
         property.setPropertyStatus(PropertyStatus.TRANSFERRED);
         propertyRepository.save(property);
 
-        // 7. Save offchain transaction record
         Transaction tx = new Transaction();
-        tx.setPropertyId(propertyId);
-        tx.setSellerId(sellerId);
-        tx.setBuyerId(buyerId);
+        tx.setPropertyId(property.getId());
+        tx.setSellerId(sellerUniqueId);
+        tx.setBuyerId(buyer.getUniqueId());
         tx.setHash(offchainHash);
         tx.setOffchainHash(offchainHash);
         tx.setBlockchainHash(blockchainTxHash);
         tx.setTimestamp(LocalDateTime.now());
         transactionRepository.save(tx);
-
-        return "Property transferred successfully! Blockchain TX: " + blockchainTxHash;
     }
 }

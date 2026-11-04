@@ -1,10 +1,12 @@
 package com.example.RealEstate2.controller;
 
 import com.example.RealEstate2.service.PropertyLedgerService;
+import com.example.RealEstate2.service.PropertyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigInteger;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/ledger")
@@ -12,6 +14,7 @@ import java.math.BigInteger;
 public class PropertyLedgerController {
 
     private final PropertyLedgerService ledgerService;
+    private final PropertyService propertyService;
 
     @PostMapping("/register")
     public BigInteger registerProperty() throws Exception {
@@ -25,11 +28,14 @@ public class PropertyLedgerController {
             @RequestParam String lenderAddress,
             @RequestParam String inspectorAddress,
             @RequestParam BigInteger priceWei,
-            @RequestParam BigInteger earnestAmountWei
+            @RequestParam BigInteger earnestAmountWei,
+            @RequestParam(required = false) String buyerUniqueId
     ) throws Exception {
-        return ledgerService.listProperty(
+        String txHash = ledgerService.listProperty(
                 propertyId, buyerAddress, lenderAddress, inspectorAddress, priceWei, earnestAmountWei
         );
+        propertyService.recordPendingBuyer(propertyId, buyerUniqueId);
+        return txHash;
     }
 
     @PostMapping("/{propertyId}/earnest")
@@ -51,13 +57,15 @@ public class PropertyLedgerController {
     }
 
     @PostMapping("/{propertyId}/finalize")
-    public String finalizeSale(@PathVariable Long propertyId) throws Exception {
-        return ledgerService.finalizeSale(propertyId);
+    public Map<String, Object> finalizeSale(@PathVariable Long propertyId) throws Exception {
+        return propertyService.finalizeEscrowSale(propertyId);
     }
 
     @PostMapping("/{propertyId}/cancel")
     public String cancelSale(@PathVariable Long propertyId) throws Exception {
-        return ledgerService.cancelSale(propertyId);
+        String txHash = ledgerService.cancelSale(propertyId);
+        propertyService.clearPendingBuyer(propertyId);
+        return txHash;
     }
 
     @GetMapping("/{propertyId}")

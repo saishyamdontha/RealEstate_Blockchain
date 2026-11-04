@@ -36,14 +36,15 @@ export default function AddProperty() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-xl font-semibold text-slate-900">Add a property</h1>
-      <p className="mt-1 text-sm text-slate-500">
+    <div className="mx-auto max-w-2xl px-6 py-14">
+      <span className="section-eyebrow">New listing</span>
+      <h1 className="mt-1 text-2xl font-bold tracking-tight text-ink-50">Add a property</h1>
+      <p className="mt-1.5 text-sm text-ink-400">
         This registers the property on-chain before saving it — the request may take a moment
         while the blockchain transaction confirms.
       </p>
 
-      <form onSubmit={handleSubmit} className="card mt-6 space-y-4 p-6">
+      <form onSubmit={handleSubmit} className="card mt-7 space-y-5 p-7">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="label">Property ID</label>
@@ -85,9 +86,13 @@ export default function AddProperty() {
           </div>
         </div>
 
-        {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+        {error && (
+          <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-sm text-rose-300">
+            {error}
+          </p>
+        )}
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex gap-3 pt-1">
           <button type="submit" disabled={loading} className="btn-primary">
             {loading ? "Registering on-chain..." : "Add property"}
           </button>

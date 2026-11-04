@@ -163,4 +163,57 @@ class PropertyServiceImplTest {
         ReflectionTestUtils.setField(u, "id", id);
         return u;
     }
+
+    // -----------------------------------------------------
+    // finalizeEscrowSale: after on-chain finalize, the DB
+    // owner must follow the chain (bug #2 regression guard).
+    // -----------------------------------------------------
+    @Test
+    void finalizeEscrowSale_movesOwnershipToPendingBuyer() throws Exception {
+        User buyer = new User();
+        buyer.setUniqueId("buyer-001");
+        property.setUniqueUserId("seller-001");
+        property.setBlockchainPropertyId(7L);
+        property.setForSale(true);
+        property.setPendingBuyerUniqueId("buyer-001");
+
+        when(ledgerService.finalizeSale(7L)).thenReturn("0xabc");
+        when(propertyRepository.findByBlockchainPropertyId(7L)).thenReturn(Optional.of(property));
+        when(userRepository.findByUniqueId("buyer-001")).thenReturn(Optional.of(buyer));
+
+        var result = propertyService.finalizeEscrowSale(7L);
+
+        assertThat(result.get("dbSynced")).isEqualTo(true);
+        assertThat(property.getUniqueUserId()).isEqualTo("buyer-001");
+        assertThat(property.getUser()).isSameAs(buyer);
+        assertThat(property.isForSale()).isFalse();
+        assertThat(property.getPendingBuyerUniqueId()).isNull();
+        verify(transactionRepository).save(any());
+    }
+
+    @Test
+    void finalizeEscrowSale_reportsDesync_whenNoPendingBuyer() throws Exception {
+        property.setUniqueUserId("seller-001");
+        property.setBlockchainPropertyId(7L);
+
+        when(ledgerService.finalizeSale(7L)).thenReturn("0xabc");
+        when(propertyRepository.findByBlockchainPropertyId(7L)).thenReturn(Optional.of(property));
+
+        var result = propertyService.finalizeEscrowSale(7L);
+
+        assertThat(result.get("dbSynced")).isEqualTo(false);
+        assertThat(property.getUniqueUserId()).isEqualTo("seller-001");
+        verify(propertyRepository, never()).save(any());
+        verifyNoInteractions(transactionRepository);
+    }
+
+    @Test
+    void finalizeEscrowSale_leavesDbUntouched_whenChainReverts() throws Exception {
+        when(ledgerService.finalizeSale(7L)).thenThrow(new RuntimeException("revert"));
+
+        assertThatThrownBy(() -> propertyService.finalizeEscrowSale(7L))
+                .hasMessageContaining("revert");
+
+        verifyNoInteractions(propertyRepository, transactionRepository);
+    }
 }

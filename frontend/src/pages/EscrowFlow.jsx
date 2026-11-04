@@ -82,6 +82,7 @@ export default function EscrowFlow() {
     inspectorAddress: "",
     priceWei: "",
     earnestAmountWei: "",
+    buyerUniqueId: "",
   });
   const updateList = (field) => (e) => setListForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -129,7 +130,8 @@ export default function EscrowFlow() {
             <input className="input" placeholder="Lender address" value={listForm.lenderAddress} onChange={updateList("lenderAddress")} />
             <input className="input" placeholder="Inspector address" value={listForm.inspectorAddress} onChange={updateList("inspectorAddress")} />
             <input className="input" placeholder="Price (wei)" value={listForm.priceWei} onChange={updateList("priceWei")} />
-            <input className="input col-span-2" placeholder="Earnest amount (wei)" value={listForm.earnestAmountWei} onChange={updateList("earnestAmountWei")} />
+            <input className="input" placeholder="Earnest amount (wei)" value={listForm.earnestAmountWei} onChange={updateList("earnestAmountWei")} />
+            <input className="input" placeholder="Buyer app user ID (uniqueId)" value={listForm.buyerUniqueId} onChange={updateList("buyerUniqueId")} />
           </div>
           <button
             className="btn-primary mt-3"
