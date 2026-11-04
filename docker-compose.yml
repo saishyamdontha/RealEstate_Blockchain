@@ -1,0 +1,75 @@
+# Local full stack: Postgres + local EVM chain + contract deploy + Spring Boot + React.
+# Everything is throwaway: `docker compose down` resets chain AND database together,
+# so on-chain IDs and DB rows never drift apart between runs.
+#
+# The private key below is Anvil's well-known TEST key #0. It is public on purpose.
+# Never send real funds to it, never use it on Sepolia/mainnet.
+
+x-anvil-key: &anvil_key "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: re2_app
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localdev}
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d re2_app"]
+      interval: 3s
+      retries: 20
+
+  chain:
+    image: ghcr.io/foundry-rs/foundry:stable
+    command: ["anvil --host 0.0.0.0 --chain-id 31337"]
+    ports: ["8545:8545"]
+    healthcheck:
+      test: ["CMD-SHELL", "cast block-number --rpc-url http://localhost:8545"]
+      interval: 3s
+      retries: 20
+
+  deploy-contract:
+    image: ghcr.io/foundry-rs/foundry:stable
+    depends_on:
+      chain: { condition: service_healthy }
+    volumes:
+      - ./PropertyLedger.bin:/contract/PropertyLedger.bin:ro
+    environment:
+      KEY: *anvil_key
+    # Fresh Anvil + key #0 + nonce 0 always yields 0x5FbDB2315678afecb367f032d93F642f64180aa3.
+    # Skips deploying if code already exists there (e.g. backend restarted, chain kept).
+    command:
+      - |
+        ADDR=0x5FbDB2315678afecb367f032d93F642f64180aa3
+        if [ "$$(cast code $$ADDR --rpc-url http://chain:8545)" != "0x" ]; then
+          echo "contract already at $$ADDR"; exit 0
+        fi
+        cast send --rpc-url http://chain:8545 --private-key "$$KEY" \
+          --create "0x$$(tr -d '\n' < /contract/PropertyLedger.bin)" > /dev/null
+        echo "deployed PropertyLedger at $$ADDR"
+        [ "$$(cast code $$ADDR --rpc-url http://chain:8545)" != "0x" ]
+
+  backend:
+    build: .
+    depends_on:
+      db: { condition: service_healthy }
+      deploy-contract: { condition: service_completed_successfully }
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/re2_app
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: ${DB_PASSWORD:-localdev}
+      BLOCKCHAIN_RPC: http://chain:8545
+      BLOCKCHAIN_PRIVATE_KEY: *anvil_key
+      BLOCKCHAIN_CONTRACT: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    ports: ["8080:8080"]
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # The browser on your laptop calls the API, so this is the host-mapped port.
+        VITE_API_URL: http://localhost:8080
+    depends_on: [backend]
+    # 5173 is already in the backend's CORS allow-list (WebConfig).
+    ports: ["5173:80"]
