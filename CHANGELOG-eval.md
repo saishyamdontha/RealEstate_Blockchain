@@ -23,3 +23,4 @@ that is not inspected before evaluation.
 | v2 | 83% | 50% | 75% (3/3 false alarms) | after 2-4. One added prompt line moved qwen3 -8pts (backend_crash -> wallet 3/3): LLM prompt fragility |
 
 Rules improved using the dev set; LLMs were not tuned -> dev comparison is NOT fair. Final claims only from a fresh test run.
+| v2 + think | 83% | 69% (RCA_THINK=1) | 75% | qwen3 reasoning mode on: +19pts vs no-think; fixes symptom-vs-cause (db_bad_password 0->100%), 0 false alarms; ~35s/trial vs ~2s. Evidence validity NOT improved (paraphrases instead of quoting). Chosen as agent model. |
