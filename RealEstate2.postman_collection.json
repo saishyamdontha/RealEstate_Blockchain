@@ -135,14 +135,14 @@
           "request": {
             "method": "POST",
             "url": {
-              "raw": "{{baseUrl}}/ledger/{{propertyId}}/list?buyerAddress=0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35&lenderAddress=0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35&inspectorAddress=0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35&priceWei=1000000000000000000&earnestAmountWei=100000000000000000",
+              "raw": "{{baseUrl}}/ledger/{{propertyId}}/list?buyerAddress=0x76db67e9fb6ce36e95d415b4bcb681627070bade&lenderAddress=0x76db67e9fb6ce36e95d415b4bcb681627070bade&inspectorAddress=0x76db67e9fb6ce36e95d415b4bcb681627070bade&priceWei=10000000000000000&earnestAmountWei=1000000000000000",
               "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "list"],
               "query": [
-                { "key": "buyerAddress", "value": "0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35" },
-                { "key": "lenderAddress", "value": "0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35" },
-                { "key": "inspectorAddress", "value": "0x958b3b42c821c6c6ea32772e470b2fd1d6e4fb35" },
-                { "key": "priceWei", "value": "1000000000000000000" },
-                { "key": "earnestAmountWei", "value": "100000000000000000" }
+                { "key": "buyerAddress", "value": "0x76db67e9fb6ce36e95d415b4bcb681627070bade" },
+                { "key": "lenderAddress", "value": "0x76db67e9fb6ce36e95d415b4bcb681627070bade" },
+                { "key": "inspectorAddress", "value": "0x76db67e9fb6ce36e95d415b4bcb681627070bade" },
+                { "key": "priceWei", "value": "10000000000000000" },
+                { "key": "earnestAmountWei", "value": "1000000000000000" }
               ]
             }
           }
@@ -152,9 +152,9 @@
           "request": {
             "method": "POST",
             "url": {
-              "raw": "{{baseUrl}}/ledger/{{propertyId}}/earnest?earnestAmountWei=100000000000000000",
+              "raw": "{{baseUrl}}/ledger/{{propertyId}}/earnest?earnestAmountWei=1000000000000000",
               "host": ["{{baseUrl}}"], "path": ["ledger", "{{propertyId}}", "earnest"],
-              "query": [{ "key": "earnestAmountWei", "value": "100000000000000000" }]
+              "query": [{ "key": "earnestAmountWei", "value": "1000000000000000" }]
             },
             "description": "Returns a decoded 400 (e.g. NotBuyer) with the real revert error name and offending address if the calling account isn't the registered buyer, instead of a generic 500."
           }
