@@ -59,3 +59,5 @@ frontend/*.local
 logs/
 __pycache__/
 trials/
+results/
+trials_dev/
