@@ -27,11 +27,11 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
           cache: maven
 
       - name: Download dependencies into the local Maven cache
-        run: mvn -B -q dependency:resolve
+        run: ./mvnw -B -q dependency:resolve
 
       - name: Scan dependencies
         run: >
